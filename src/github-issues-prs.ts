@@ -99,6 +99,13 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		const errors: TreeItem[] = [];
 		for (const remote of remotes) {
 			try {
+				if (remote.username && remote.password) {
+					await this.github.authenticate({
+						type: 'basic',
+						username: remote.username,
+						password: remote.password
+					});
+				}
 				const milestones: (string | undefined)[] = await this.getCurrentMilestones(remote);
 				if (!milestones.length) {
 					milestones.push(undefined);

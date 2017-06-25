@@ -11,7 +11,7 @@ export async function getGitHubRemotes(rootPath: string) {
             const url = m[1];
             const data = await fill(url);
             if (data) {
-                remotes.push({ url, owner: m[2], repo: m[3], username: data.username });
+                remotes.push({ url, owner: m[2], repo: m[3], username: data.username, password: data.password });
             }
         }
     }

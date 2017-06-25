@@ -3,4 +3,5 @@ export interface GitRemote {
 	owner: string;
 	repo: string;
 	username: string;
+	password: string;
 }
