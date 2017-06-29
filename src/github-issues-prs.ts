@@ -106,6 +106,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 			return [new TreeItem('No GitHub remotes found')];
 		}
 
+		let assignee: string | undefined;
 		const issues: Issue[] = [];
 		const errors: TreeItem[] = [];
 		for (const remote of remotes) {
@@ -130,6 +131,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 							if (remote.username && remote.password) { // check requires push access
 								await this.github.repos.checkCollaborator({ owner: remote.owner, repo: remote.repo, username })
 							}
+							assignee = username;
 							q += ` assignee:${username}`;
 						} catch (err) {
 							// ignore (not a collaborator)
@@ -166,7 +168,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 			}
 		}
 		if (!issues.length) {
-			return errors.length ? errors : [new TreeItem('No issues found')];
+			return errors.length ? errors : [new TreeItem(`No issues found for ${assignee ? '@' + assignee : 'any user'}`)];
 		}
 
 		const milestoneIndex: { [title: string]: Milestone; } = {};
