@@ -252,4 +252,6 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		return milestones.slice(0, 2)
 			.map(milestone => milestone.title);
 	}
+
+	// none-sense comment
 }
