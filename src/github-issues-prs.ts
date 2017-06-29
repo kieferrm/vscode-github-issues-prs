@@ -265,5 +265,6 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 			.map(milestone => milestone.title);
 	}
 
-	// none-sense comment
+
+	// none-sense comment again
 }
