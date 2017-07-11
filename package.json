@@ -47,6 +47,11 @@
         }
       },
       {
+        "command": "githubIssuesPrs.createIssue",
+        "title": "Create Issue",
+        "icon": "resources/general/createIssue.svg"
+      },
+      {
         "command": "githubIssuesPrs.openIssue",
         "title": "Open Issue"
       },
@@ -71,6 +76,11 @@
       "view/title": [
         {
           "command": "githubIssuesPrs.refresh",
+          "when": "view == githubIssuesPrs",
+          "group": "navigation"
+        },
+        {
+          "command": "githubIssuesPrs.createIssue",
           "when": "view == githubIssuesPrs",
           "group": "navigation"
         }
@@ -151,6 +161,7 @@
     "git-credential-node": "^1.1.0",
     "github": "^9.2.0",
     "tmp": "^0.0.31",
-    "request":"^2.81.0"
+    "request":"^2.81.0",
+    "open": "0.0.5"
   }
 }
