@@ -1,7 +1,7 @@
 import * as path from 'path';
 
 import * as GitHub from 'github';
-import * as open from 'open';
+import open = require('open');
 import { copy } from 'copy-paste';
 
 import { EventEmitter, TreeDataProvider, TreeItem, ExtensionContext, QuickPickItem, Uri, TreeItemCollapsibleState, window, workspace, commands } from 'vscode';
@@ -104,6 +104,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		let urls: RemoteQuickPickItem[] = remotes.map(remote => {
 			let remoteItem: RemoteQuickPickItem = {
 				label: remote.owner + '/' + remote.repo,
+				description: '',
 				remote: remote
 			}
 
@@ -115,28 +116,27 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 			return;
 		}
 
-		const callback = (selectedRemote: RemoteQuickPickItem|null) => {
+		const callback = async (selectedRemote: RemoteQuickPickItem | undefined) => {
 			if (!selectedRemote) {
 				return;
 			}
 
 			const github = new GitHub();
 
-			if (selectedRemote.username && selectedRemote.password) {
+			if (selectedRemote.remote.username && selectedRemote.remote.password) {
 				github.authenticate({
 					type: 'basic',
-					username: selectedRemote.username,
-					password: selectedRemote.password
+					username: selectedRemote.remote.username,
+					password: selectedRemote.remote.password
 				});
 			}
 
-			github.repos.get({
+			const data = await github.repos.get({
 				owner: selectedRemote.remote.owner,
 				repo: selectedRemote.remote.repo
-			}).then(data => {
-				// TODO: Store in cache
-				open(data.data.html_url + '/issues/new')
 			});
+			// TODO: Store in cache
+			open(data.data.html_url + '/issues/new')
 
 		};
 
@@ -146,12 +146,13 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 			return;
 		}
 
-		window.showQuickPick(
+		const pick = await window.showQuickPick(
 			urls,
 			{
 				placeHolder: 'Select the remote you want to create an issue on'
 			}
-		).then(callback);
+		);
+		callback(pick);
 	}
 
 	private async poll() {
