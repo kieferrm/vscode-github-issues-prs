@@ -337,5 +337,5 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	}
 
 
-	// none-sense comment again
+	// none-sense comment
 }
