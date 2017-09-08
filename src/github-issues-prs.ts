@@ -41,25 +41,28 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	private username: string | undefined;
 
 	constructor(private context: ExtensionContext) {
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.refresh', this.refresh, this));
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.createIssue', this.createIssue, this));
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.openIssue', this.openIssue, this));
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.openPullRequest', this.openIssue, this));
-		// context.subscriptions.push(commands.registerCommand('githubIssuesPrs.checkoutPullRequest', this.checkoutPullRequest, this));
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.copyNumber', this.copyNumber, this));
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.copyText', this.copyText, this));
-		context.subscriptions.push(commands.registerCommand('githubIssuesPrs.copyMarkdown', this.copyMarkdown, this));
+		const subscriptions = context.subscriptions;
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.refresh', this.refresh, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.createIssue', this.createIssue, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.openIssue', this.openIssue, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.openPullRequest', this.openIssue, this));
+		// subscriptions.push(commands.registerCommand('githubIssuesPrs.checkoutPullRequest', this.checkoutPullRequest, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyNumber', this.copyNumber, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyText', this.copyText, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyMarkdown', this.copyMarkdown, this));
 
-		context.subscriptions.push(window.onDidChangeActiveTextEditor(this.poll, this));
+		subscriptions.push(window.onDidChangeActiveTextEditor(this.poll, this));
 
 		this.username = workspace.getConfiguration('github').get<string>('username');
-		context.subscriptions.push(workspace.onDidChangeConfiguration(() => {
+		subscriptions.push(workspace.onDidChangeConfiguration(() => {
 			const newUsername = workspace.getConfiguration('github').get<string>('username');
 			if (newUsername !== this.username) {
 				this.username = newUsername;
 				this.refresh();
 			}
 		}));
+
+		subscriptions.push(workspace.onDidChangeWorkspaceFolders(this.refresh, this));
 	}
 
 	getTreeItem(element: TreeItem): TreeItem {
@@ -162,7 +165,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	}
 
 	private async fetchChildren(element?: TreeItem): Promise<TreeItem[]> {
-		if (!workspace.rootPath) {
+		if (!workspace.workspaceFolders) {
 			return [new TreeItem('No folder opened')];
 		}
 
@@ -270,6 +273,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	}
 
 	/* private */ async checkoutPullRequest(issue: Issue) {
+		// TODO: Move off rootPath
 		const github = new GitHub();
 		const p = Uri.parse(issue.item.repository_url).path;
 		const repo = path.basename(p);
@@ -337,5 +341,5 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	}
 
 
-	// none-sense comment
+	// none-sense comment again
 }
