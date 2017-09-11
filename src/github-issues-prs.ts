@@ -4,7 +4,7 @@ import * as GitHub from 'github';
 import open = require('open');
 import { copy } from 'copy-paste';
 
-import { EventEmitter, TreeDataProvider, TreeItem, ExtensionContext, QuickPickItem, Uri, TreeItemCollapsibleState, window, workspace, commands } from 'vscode';
+import { EventEmitter, TreeDataProvider, TreeItem, ExtensionContext, QuickPickItem, Uri, TreeItemCollapsibleState, window, workspace, commands, WorkspaceEdit } from 'vscode';
 
 import { exec, compareDateStrings } from './utils';
 import { GitRemote } from './git/models/remote';
@@ -39,6 +39,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	private children: Promise<TreeItem[]> | undefined;
 
 	private username: string | undefined;
+	private repositories: string[];
 
 	constructor(private context: ExtensionContext) {
 		const subscriptions = context.subscriptions;
@@ -53,11 +54,16 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 
 		subscriptions.push(window.onDidChangeActiveTextEditor(this.poll, this));
 
-		this.username = workspace.getConfiguration('github').get<string>('username');
+		const config = workspace.getConfiguration('github');
+		this.username = config.get<string>('username');
+		this.repositories = config.get<string[]>('repositories') || [];
 		subscriptions.push(workspace.onDidChangeConfiguration(() => {
-			const newUsername = workspace.getConfiguration('github').get<string>('username');
-			if (newUsername !== this.username) {
+			const config = workspace.getConfiguration('github');
+			const newUsername = config.get<string>('username');
+			const newRepositories = config.get<string[]>('repositories') || [];
+			if (newUsername !== this.username || JSON.stringify(newRepositories) !== JSON.stringify(this.repositories)) {
 				this.username = newUsername;
+				this.repositories = newRepositories;
 				this.refresh();
 			}
 		}));
@@ -96,11 +102,9 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	}
 
 	private async createIssue() {
-		let remotes: GitRemote[];
 
-		try {
-			remotes = await this.getGitHubRemotes();
-		} catch (err) {
+		const remotes = await getGitHubRemotes(workspace.rootPath);
+		if (!remotes.length) {
 			return false;
 		}
 
@@ -176,7 +180,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 			return [new TreeItem('Not a GitHub repository')];
 		}
 		if (!remotes.length) {
-			return [new TreeItem('No GitHub remotes found')];
+			return [new TreeItem('No GitHub repositories found')];
 		}
 
 		let assignee: string | undefined;
@@ -339,7 +343,6 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		return milestones.slice(0, 2)
 			.map(milestone => milestone.title);
 	}
-
 
 	// none-sense comment again
 }
