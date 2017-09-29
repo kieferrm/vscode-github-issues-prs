@@ -55,6 +55,10 @@
         }
       },
       {
+        "command": "githubIssuesPrs.openMilestone",
+        "title": "Open Milestone"
+      },
+      {
         "command": "githubIssuesPrs.openIssue",
         "title": "Open Issue"
       },
@@ -89,6 +93,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "githubIssuesPrs.openMilestone",
+          "when": "view == githubIssuesPrs && viewItem == milestone",
+          "group": "1_navigation"
+        },
         {
           "command": "githubIssuesPrs.openIssue",
           "when": "view == githubIssuesPrs && viewItem == issue",
