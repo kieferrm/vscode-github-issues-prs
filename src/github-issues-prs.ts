@@ -49,7 +49,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.openMilestone', this.openMilestone, this));
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.openIssue', this.openIssue, this));
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.openPullRequest', this.openIssue, this));
-		// subscriptions.push(commands.registerCommand('githubIssuesPrs.checkoutPullRequest', this.checkoutPullRequest, this));
+		subscriptions.push(commands.registerCommand('githubIssuesPrs.checkoutPullRequest', this.checkoutPullRequest, this));
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyNumber', this.copyNumber, this));
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyText', this.copyText, this));
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyMarkdown', this.copyMarkdown, this));
@@ -292,8 +292,19 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		commands.executeCommand('vscode.open', Uri.parse(issue.item.html_url));
 	}
 
-	/* private */ async checkoutPullRequest(issue: Issue) {
-		// TODO: Move off rootPath
+	private async checkoutPullRequest(issue: Issue) {
+
+		const remote = issue.query.remote;
+		const folder = remote.folders[0];
+		if (!folder) {
+			return window.showInformationMessage(`The repository '${remote.owner}/${remote.repo}' is not checked out in any open workspace folder.`);
+		}
+
+		const status = await exec(`git status --short --porcelain`, { cwd: folder.uri.fsPath });
+		if (status.stdout) {
+			return window.showInformationMessage(`There are local changes in the workspace folder. Commit or stash them before checking out the pull request.`);
+		}
+
 		const github = new GitHub();
 		const p = Uri.parse(issue.item.repository_url).path;
 		const repo = path.basename(p);
@@ -302,10 +313,9 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		const login = pr.data.head.repo.owner.login;
 		const clone_url = pr.data.head.repo.clone_url;
 		const remoteBranch = pr.data.head.ref;
-		const localBranch = `${login}/${remoteBranch}`;
 		try {
 			let remote: string | undefined = undefined;
-			const remotes = await exec(`git remote -v`, { cwd: workspace.rootPath });
+			const remotes = await exec(`git remote -v`, { cwd: folder.uri.fsPath });
 			let m: RegExpExecArray | null;
 			const r = /^([^\s]+)\s+([^\s]+)\s+\(fetch\)/gm;
 			while (m = r.exec(remotes.stdout)) {
@@ -315,16 +325,29 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 				}
 			}
 			if (!remote) {
-				await exec(`git remote add ${login} ${clone_url}`, { cwd: workspace.rootPath });
-				remote = login;
+				remote = await window.showInputBox({
+					prompt: 'Name for the remote to add',
+					value: login
+				});
+				if (!remote) {
+					return;
+				}
+				await exec(`git remote add ${remote} ${clone_url}`, { cwd: folder.uri.fsPath });
 			}
 			try {
-				await exec(`git fetch ${remote} ${remoteBranch}`, { cwd: workspace.rootPath });
+				await exec(`git fetch ${remote} ${remoteBranch}`, { cwd: folder.uri.fsPath });
 			} catch (err) {
 				console.error(err);
 				// git fetch prints to stderr, continue
 			}
-			await exec(`git checkout -b ${localBranch} ${remote}/${remoteBranch}`, { cwd: workspace.rootPath });
+			const localBranch = await window.showInputBox({
+				prompt: 'Name for the local branch to checkout',
+				value: `${login}/${remoteBranch}`
+			});
+			if (!localBranch) {
+				return;
+			}
+			await exec(`git checkout -b ${localBranch} ${remote}/${remoteBranch}`, { cwd: folder.uri.fsPath });
 		} catch (err) {
 			console.error(err);
 			// git checkout prints to stderr, continue
