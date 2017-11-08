@@ -281,16 +281,11 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	}
 
 	private openMilestone(milestone: Milestone) {
-		const seen: Record<string, boolean> = {};
-		for (const issue of milestone.issues) {
-			const item = issue.item;
-			const assignee = issue.query.assignee;
-			const url = `https://${this.host}/${issue.query.remote.owner}/${issue.query.remote.repo}/issues?q=is%3Aopen+milestone%3A%22${item.milestone.title}%22${assignee ? '+assignee%3A' + assignee : ''}`;
-			if (!seen[url]) {
-				seen[url] = true;
-				commands.executeCommand('vscode.open', Uri.parse(url));
-			}
-		}
+		const issue = milestone.issues[0];
+		const item = issue.item;
+		const assignee = issue.query.assignee;
+		const url = `https://github.com/issues?utf8=%E2%9C%93&q=is%3Aopen+milestone%3A%22${item.milestone.title}%22${assignee ? '+assignee%3A' + assignee : ''}`;
+		commands.executeCommand('vscode.open', Uri.parse(url));
 	}
 
 	private openIssue(issue: Issue) {
