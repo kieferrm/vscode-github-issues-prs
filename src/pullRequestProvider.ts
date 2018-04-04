@@ -1,29 +1,29 @@
-import * as vscode from 'vscode';
+import * as GitHub from 'github';
 import * as path from 'path';
 import * as request from 'request';
-import * as GitHub from 'github';
+import * as vscode from 'vscode';
 import { parseDiff } from './git/diff';
-import { getGitHubRemotes } from './git/remote';
 import { writeTmpFile } from './git/file';
 import { GitChangeType, SlimFileChange } from './git/models/file';
 import { GitRemote } from './git/models/remote';
+import { getGitHubRemotes } from './git/remote';
+import { Configuration } from './configuration';
 
 export class PullRequest {
-    constructor(public title: string, public url: string) { };
+    constructor(public title: string, public url: string) { }
 }
 
 export class PullRequestProvider implements vscode.TreeDataProvider<PullRequest | SlimFileChange> {
-    private context: vscode.ExtensionContext;
+    // private context: vscode.ExtensionContext;
     private workspaceRoot: string;
     private icons: any;
     private github = new GitHub();
 
-    constructor() {
+    constructor(private configuration: Configuration) {
     }
 
     activate(context: vscode.ExtensionContext) {
-        this.context = context;
-        this.workspaceRoot = vscode.workspace.rootPath;
+        // this.context = context;
         vscode.window.registerTreeDataProvider<PullRequest | SlimFileChange>('pullRequest', this);
         this.icons = {
             light: {
@@ -137,7 +137,7 @@ export class PullRequestProvider implements vscode.TreeDataProvider<PullRequest 
             return new Promise<PullRequest[]>(async (resolve, reject) => {
                 let remotes: GitRemote[];
                 try {
-                    remotes = await getGitHubRemotes(this.workspaceRoot);
+                    remotes = await getGitHubRemotes(vscode.workspace.workspaceFolders, this.configuration.host, this.configuration.repositories);
                 } catch (err) {
                     // return [new TreeItem('Not a GitHub repository')];
                 }

@@ -16,5 +16,5 @@ export async function writeTmpFile(content: string, ext: string): Promise<string
                 reject(ex);
             }
         });
-    })
+    });
 }

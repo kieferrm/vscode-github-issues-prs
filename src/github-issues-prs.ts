@@ -1,16 +1,14 @@
-import * as path from 'path';
-
-import * as GitHub from 'github';
-import open = require('open');
 import { copy } from 'copy-paste';
-import { fill } from 'git-credential-node';
+import * as GitHub from 'github';
 import * as moment from 'moment';
-
-import { EventEmitter, TreeDataProvider, TreeItem, ExtensionContext, QuickPickItem, Uri, TreeItemCollapsibleState, window, workspace, commands, WorkspaceEdit } from 'vscode';
-
-import { exec } from './utils';
+import * as path from 'path';
+import { EventEmitter, ExtensionContext, QuickPickItem, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri, commands, window, workspace } from 'vscode';
 import { GitRemote } from './git/models/remote';
 import { getGitHubRemotes } from './git/remote';
+import { exec, fetchAll } from './utils';
+import { Configuration } from './configuration';
+
+import open = require('open');
 
 
 class Milestone extends TreeItem {
@@ -42,11 +40,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 	private lastFetch: number | undefined;
 	private children: Promise<TreeItem[]> | undefined;
 
-	private username: string | undefined;
-	private host: string;
-	private repositories: string[];
-
-	constructor(private context: ExtensionContext) {
+	constructor(private context: ExtensionContext, private configuration: Configuration) {
 		const subscriptions = context.subscriptions;
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.refresh', this.refresh, this));
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.createIssue', this.createIssue, this));
@@ -60,24 +54,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		subscriptions.push(commands.registerCommand('githubIssuesPrs.copyUrl', this.copyUrl, this));
 
 		subscriptions.push(window.onDidChangeActiveTextEditor(this.poll, this));
-
-		const config = workspace.getConfiguration('github');
-		this.username = config.get<string>('username');
-		this.repositories = config.get<string[]>('repositories') || [];
-		this.host = config.get<string>('host') || 'github.com';
-		subscriptions.push(workspace.onDidChangeConfiguration(() => {
-			const config = workspace.getConfiguration('github');
-			const newUsername = config.get<string>('username');
-			const newRepositories = config.get<string[]>('repositories') || [];
-			const newHost = config.get<string>('host');
-			if (newUsername !== this.username || JSON.stringify(newRepositories) !== JSON.stringify(this.repositories) || newHost !== this.host) {
-				this.username = newUsername;
-				this.repositories = newRepositories;
-				this.host = newHost || 'github.com';
-				this.refresh();
-			}
-		}));
-
+		subscriptions.push(configuration.onDidChange(this.refresh, this));
 		subscriptions.push(workspace.onDidChangeWorkspaceFolders(this.refresh, this));
 	}
 
@@ -113,7 +90,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 
 	private async createIssue() {
 
-		const remotes = await getGitHubRemotes(workspace.rootPath);
+		const remotes = await getGitHubRemotes(workspace.workspaceFolders, this.configuration.host, this.configuration.repositories);
 		if (!remotes.length) {
 			return false;
 		}
@@ -140,7 +117,12 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 
 			const github = new GitHub(this.getAPIOption());
 
-			if (selectedRemote.remote.username && selectedRemote.remote.password) {
+			if (this.configuration.accessToken) {
+				github.authenticate({
+					type: 'token',
+					token: this.configuration.accessToken
+				});
+			} else if (selectedRemote.remote.username && selectedRemote.remote.password) {
 				github.authenticate({
 					type: 'basic',
 					username: selectedRemote.remote.username,
@@ -185,7 +167,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 
 		let remotes: GitRemote[];
 		try {
-			remotes = await getGitHubRemotes(workspace.rootPath);
+			remotes = await getGitHubRemotes(workspace.workspaceFolders, this.configuration.host, this.configuration.repositories);
 		} catch (err) {
 			return [new TreeItem('Not a GitHub repository')];
 		}
@@ -194,7 +176,7 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 		}
 
 		const { username, password } = remotes[0];
-		const assignee = this.username || username || undefined;
+		const assignee = this.configuration.username || username || undefined;
 		if (!assignee) {
 			const configure = new TreeItem('Configure "github.username" in settings');
 			configure.command = {
@@ -291,7 +273,12 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 
 	private async fetchAllIssues(remotes: GitRemote[], assignee: string, username?: string, password?: string) {
 		const github = new GitHub(this.getAPIOption());
-		if (username && password) {
+		if (this.configuration.accessToken) {
+			github.authenticate({
+				type: 'token',
+				token: this.configuration.accessToken
+			});
+		} else if (username && password) {
 			github.authenticate({
 				type: 'basic',
 				username,
@@ -423,5 +410,13 @@ export class GitHubIssuesPrsProvider implements TreeDataProvider<TreeItem> {
 
 	private copyUrl(issue: Issue) {
 		copy(issue.item.html_url);
+	}
+
+	private getAPIOption() {
+		if (this.configuration.host === 'github.com') {
+			return { host: 'api.github.com' };
+		} else {
+			return { host: this.configuration.host, pathPrefix: '/api/v3' };
+		}
 	}
 }
